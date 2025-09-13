@@ -212,7 +212,6 @@ def dashboard():
     col_sair, col_titulo = st.columns([1, 6])
     with col_sair:
         if st.button("🚪 Sair", key="btn_sair", help="Encerrar sessão"):
-            limpar_sessao()
             st.session_state.logged_in = False
             st.session_state.page = "login"
             st.rerun()
@@ -756,17 +755,20 @@ def gerar_pdf_relatorio(ano_mes):
     )
 
 # =========================================================
-# ROUTER / LOGIN
+# ROUTER / LOGIN (login individual por navegador)
 # =========================================================
-if not st.session_state.logged_in or st.session_state.page == "login":
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "page" not in st.session_state:
+    st.session_state.page = "login"
+
+if not st.session_state.logged_in:
     st.title("💰 Sistema de Controle Financeiro")
     with st.form("login_form"):
         user = st.text_input("Usuário")
         pwd = st.text_input("Senha", type="password")
         if st.form_submit_button("Entrar"):
             if user == USERNAME and pwd == PASSWORD and user and pwd:
-                token = str(uuid.uuid4())
-                salvar_sessao(token)
                 st.session_state.logged_in = True
                 st.session_state.page = "dashboard"
                 st.rerun()
@@ -791,3 +793,4 @@ else:
         emprestimos_page()
     elif st.session_state.page == "relatorio":
         relatorio_mensal()
+
