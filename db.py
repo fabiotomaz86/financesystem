@@ -133,7 +133,7 @@ def carregar_sessao():
     if row:
         token, criado_em = row
         dt = datetime.fromisoformat(criado_em)
-        if (datetime.now() - dt).total_seconds() <= 3600:  # 1h = 3600s
+        if (datetime.now() - dt).total_seconds() <= 3600:  # 1h
             return token
     return None
 
@@ -155,7 +155,6 @@ def add_receita(data, origem, valor, descricao):
     conn.commit()
     conn.close()
 
-    # Após registrar receita, verificar quitação automática
     verificar_quitacoes_automaticas(ano_mes, data)
 
 def get_total_receitas_mes(ano_mes):
@@ -304,7 +303,6 @@ def registrar_emprestimo(instituicao, contrato, tipo, primeira_parcela, qtd_parc
     """, (instituicao, contrato, tipo, primeira_parcela, qtd_parcelas, valor_parcela))
     emprestimo_id = cur.lastrowid
 
-    # gerar parcelas
     mes, ano = map(int, primeira_parcela.split("/"))
     for i in range(qtd_parcelas):
         mes_atual = (mes + i - 1) % 12 + 1
@@ -325,7 +323,6 @@ def listar_emprestimos():
     rows = cur.fetchall()
     conn.close()
 
-    # calcular economia
     result = []
     for (eid, inst, contrato, tipo, qtd, valor) in rows:
         conn = sqlite3.connect(DB_NAME)
@@ -374,12 +371,20 @@ def verificar_quitacoes_automaticas(ano_mes, data_receita):
             WHERE id=?
         """, (valor, data_receita, pid))
 
-        # registrar gasto automático
         cur.execute("SELECT instituicao, contrato FROM emprestimos WHERE id=?", (eid,))
         inst, contrato = cur.fetchone()
         descricao = f"Parcela empréstimo {inst} contrato {contrato}"
         cur.execute("INSERT INTO gastos (data, valor, descricao, subconta_id, ano_mes) VALUES (?,?,?,?,?)",
                     (data_receita, valor, descricao, None, ano_mes))
 
+    conn.commit()
+    conn.close()
+
+# -------------------- NOVO: EXCLUIR EMPRÉSTIMO --------------------
+def excluir_emprestimo(emprestimo_id):
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM parcelas_emprestimo WHERE emprestimo_id=?", (emprestimo_id,))
+    cur.execute("DELETE FROM emprestimos WHERE id=?", (emprestimo_id,))
     conn.commit()
     conn.close()

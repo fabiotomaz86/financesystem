@@ -494,6 +494,10 @@ def emprestimos_page():
         st.session_state.page = "dashboard"
         st.rerun()
 
+    # Confirmação de exclusão de empréstimo
+    if "confirmar_exclusao" not in st.session_state:
+        st.session_state.confirmar_exclusao = None
+
     if st.session_state.emprestimo_detalhe:
         eid = st.session_state.emprestimo_detalhe
         st.subheader("📌 Detalhes do Empréstimo")
@@ -547,6 +551,27 @@ def emprestimos_page():
         if st.button("Voltar"):
             st.session_state.emprestimo_detalhe = None
             st.rerun()
+
+        # Botão de exclusão do empréstimo
+        if st.button("🗑️ Excluir este empréstimo", key=f"excluir_{eid}"):
+            st.session_state.confirmar_exclusao = eid
+            st.rerun()
+
+        if st.session_state.confirmar_exclusao == eid:
+            st.warning("Tem certeza que deseja excluir este empréstimo? Esta ação não pode ser desfeita.")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Confirmar exclusão"):
+                    excluir_emprestimo(eid)
+                    st.success("Empréstimo excluído com sucesso!")
+                    st.session_state.emprestimo_detalhe = None
+                    st.session_state.confirmar_exclusao = None
+                    st.rerun()
+            with col2:
+                if st.button("❌ Cancelar exclusão"):
+                    st.session_state.confirmar_exclusao = None
+                    st.rerun()
+
     else:
         st.subheader("➕ Novo Empréstimo")
         with st.form("emp_form"):
@@ -567,10 +592,19 @@ def emprestimos_page():
 
         st.subheader("📋 Empréstimos Registrados")
         emprestimos = listar_emprestimos()
-        if emprestimos:
-            for i in range(0, len(emprestimos), 3):
+
+        # Ocultar empréstimos plenamente quitados
+        emprestimos_ativos = []
+        for eid, inst, contrato, tipo, qtd, valor, economia in emprestimos:
+            parcelas = listar_parcelas(eid)
+            todas_quitadas = all(p[3] is not None for p in parcelas)
+            if not todas_quitadas:  # só mostra se ainda tem parcelas abertas
+                emprestimos_ativos.append((eid, inst, contrato, tipo, qtd, valor, economia))
+
+        if emprestimos_ativos:
+            for i in range(0, len(emprestimos_ativos), 3):
                 cols = st.columns(3, gap="large")
-                for col, (eid, inst, contrato, tipo, qtd, valor, economia) in zip(cols, emprestimos[i:i+3]):
+                for col, (eid, inst, contrato, tipo, qtd, valor, economia) in zip(cols, emprestimos_ativos[i:i+3]):
                     with col:
                         card_html = f"""
                         <div style="
@@ -594,7 +628,8 @@ def emprestimos_page():
                             st.rerun()
                         st.markdown(card_html, unsafe_allow_html=True)
         else:
-            st.info("Nenhum empréstimo cadastrado.")
+            st.info("Nenhum empréstimo ativo no momento.")
+
 # =========================================================
 # RELATÓRIO MENSAL
 # =========================================================
